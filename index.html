@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>GOLD Live Signal</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0d1117; color: #f0f6fc; margin: 0; padding: 20px; text-align: center; }
+    .card { background: #161b22; border-radius: 16px; padding: 20px; margin-bottom: 16px; border: 1px solid #30363d; }
+    .signal-box { font-size: 34px; font-weight: 800; padding: 28px 16px; border-radius: 16px; margin: 16px 0; transition: 0.3s; }
+    .HOLD { background: #21262d; color: #8b949e; }
+    .OPEN-BUY { background: #133922; color: #3fb950; border: 2px solid #3fb950; }
+    .OPEN-SELL { background: #3d1418; color: #f85149; border: 2px solid #f85149; }
+    .CLOSE-BUY, .CLOSE-SELL { background: #3b2e0c; color: #d29922; border: 2px solid #d29922; }
+    .price { font-size: 40px; font-weight: 700; letter-spacing: -1px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .stat { background: #0d1117; padding: 10px; border-radius: 10px; font-size: 13px; }
+    .stat b { display: block; font-size: 16px; margin-top: 4px; color: #58a6ff; }
+    select, button { width: 100%; padding: 14px; border-radius: 12px; border: none; font-size: 16px; font-weight: 600; margin-top: 10px; }
+    select { background: #21262d; color: #fff; }
+    button { background: #238636; color: #fff; cursor: pointer; }
+    button.active { background: #1f6feb; }
+    .reason { font-size: 15px; color: #c9d1d9; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div style="font-size:13px; color:#8b949e;">XAU/USD (GOLD) • <span id="env">--</span></div>
+    <div class="price" id="price">----.--</div>
+    <select id="tf" onchange="fetchSignal()">
+      <option value="MINUTE">1 Minute Candles</option>
+      <option value="MINUTE_5" selected>5 Minute Candles</option>
+      <option value="MINUTE_15">15 Minute Candles</option>
+      <option value="HOUR">1 Hour Candles</option>
+    </select>
+  </div>
+
+  <div id="signalBox" class="signal-box HOLD">LOADING...</div>
+
+  <div class="card">
+    <div style="font-weight:700; margin-bottom:6px;" id="pattern">--</div>
+    <div class="reason" id="reason">Connecting to Capital.com...</div>
+    <div class="grid">
+      <div class="stat">EMA 9<b id="ema9">--</b></div>
+      <div class="stat">EMA 21<b id="ema21">--</b></div>
+      <div class="stat">RSI 14<b id="rsi">--</b></div>
+    </div>
+  </div>
+
+  <button id="voiceBtn" onclick="toggleVoice()">🔊 Enable iPhone Voice Alerts</button>
+
+  <script>
+    let voiceEnabled = false;
+    let lastSignal = "";
+
+    function toggleVoice() {
+      voiceEnabled = !voiceEnabled;
+      const btn = document.getElementById("voiceBtn");
+      btn.textContent = voiceEnabled ? "✅ Voice Alerts Active" : "🔊 Enable iPhone Voice Alerts";
+      btn.classList.toggle("active", voiceEnabled);
+      if (voiceEnabled) speak("Gold scanner voice alerts enabled");
+    }
+
+    function speak(text) {
+      if (!voiceEnabled || !("speechSynthesis" in window)) return;
+      const msg = new SpeechSynthesisUtterance(text);
+      window.speechSynthesis.speak(msg);
+    }
+
+    async function fetchSignal() {
+      const tf = document.getElementById("tf").value;
+      try {
+        const res = await fetch(`/api/signal?resolution=${tf}`);
+        const data = await res.json();
+        if (data.error) {
+          document.getElementById("reason").textContent = "Error: " + data.error;
+          return;
+        }
+        document.getElementById("price").textContent = data.price.toFixed(2);
+        document.getElementById("env").textContent = data.env;
+        document.getElementById("pattern").textContent = data.pattern;
+        document.getElementById("reason").textContent = data.reason;
+        document.getElementById("ema9").textContent = data.ema9;
+        document.getElementById("ema21").textContent = data.ema21;
+        document.getElementById("rsi").textContent = data.rsi;
+
+        const box = document.getElementById("signalBox");
+        box.textContent = data.signal;
+        box.className = "signal-box " + data.signal.replace(" ", "-");
+
+        if (data.signal !== lastSignal && data.signal !== "HOLD") {
+          speak(`Gold alert: ${data.signal}`);
+        }
+        lastSignal = data.signal;
+      } catch (e) {
+        document.getElementById("reason").textContent = "Reconnecting...";
+      }
+    }
+
+    fetchSignal();
+    setInterval(fetchSignal, 10000); // Checks every 10 seconds
+  </script>
+</body>
+</html>
